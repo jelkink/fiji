@@ -1,0 +1,98 @@
+This file provides an overview of all changes in the Biome-BGC 4.2 Final source code. In addition to these changes, src/bgclib/get_gsmax.c and src/pointbgc/gsmax_init.c were added.
+
+diff -rw biomebgc-4.2/src/bgclib/bgc.c simulation/src/bgclib/bgc.c
+57a58
+> 	gsmax_control_struct  gsmax;
+138a140
+> 	gsmax = bgcin->gsmax;
+386a389,404
+> 			/* variable vs fixed GSMAX maximum conductance handling */
+> 			if (gsmax.vargsmax == 0) /* fixed GSMAX value */
+> 			{
+> 				epv.gl_smax = epc.gl_smax;
+> 			}
+> 			else /* variable GSMAX value read from file */
+> 			{
+> 				epv.gl_smax = get_gsmax(&gsmax, (ctrl.simstartyear + simyr));
+> 				bgc_printf(BV_DIAG, "GSMAX val: %lf Year: %i\n", epv.gl_smax, (ctrl.simstartyear + simyr));
+> 				if (epv.gl_smax < -999)
+> 				{
+> 					bgc_printf(BV_ERROR, "Error finding GSMAX value for year: %i\n", (ctrl.simstartyear + simyr));
+> 					return(EXIT_FAILURE);
+> 				}
+> 			}
+>
+452a471
+> 			epv.gl_smax = epc.gl_smax;
+
+diff -rw biomebgc-4.2/src/bgclib/canopy_et.c simulation/src/bgclib/canopy_et.c
+116,117c116,117
+< 	gl_s_sun = epc->gl_smax * m_final_sun * gcorr;
+< 	gl_s_shade = epc->gl_smax * m_final_shade * gcorr;
+---
+> 	gl_s_sun = epv->gl_smax * m_final_sun * gcorr;
+> 	gl_s_shade = epv->gl_smax * m_final_shade * gcorr;
+
+diff -rw biomebgc-4.2/src/bgclib/makefile simulation/src/bgclib/makefile
+18c18
+< 	precision_control.o bgc_io.o output_ascii.o get_co2.o get_ndep.o
+---
+> 	precision_control.o bgc_io.o output_ascii.o get_co2.o get_ndep.o get_gsmax.o
+
+diff -rw biomebgc-4.2/src/bgclib/output_map_init.c simulation/src/bgclib/output_map_init.c
+471a472
+> 		output_map[547] = &epv->gl_smax;
+551d551
+<
+
+diff -rw biomebgc-4.2/src/include/bgc_func.h simulation/src/include/bgc_func.h
+93a94
+> double get_gsmax(gsmax_control_struct * gsmax,int simyr);
+
+diff -rw biomebgc-4.2/src/include/bgc_io.h simulation/src/include/bgc_io.h
+25a26
+> 	gsmax_control_struct gsmax; /* GSMAX maximum conductance information */
+
+diff -rw biomebgc-4.2/src/include/bgc_struct.h simulation/src/include/bgc_struct.h
+59a60,69
+> /* a structure to hold information on the annual maximum stomatal conductance */
+> typedef struct
+> {
+> 	int vargsmax;          /* (flag) 0=const 1=variable, use file */
+> 	/* Note that if constant, value is stored is epconst_struct->gl_smax, typically referenced in the code as epc->gl_smax */
+> 	double* gsmaxms_array;    /* (m/s) annual maximum leaf-scale stomatal conductance array */
+> 	int* gsmaxyear_array;    /* (year) year corresponding to the maximum conductance value in gsmaxms_array */
+> 	int gsmaxvals;        /* (num)  The number of maximum conductance values in the gsmaxms_array */
+> } gsmax_control_struct;
+>
+615a626
+> 		double gl_smax;        /* (m/s) maximum leaf-scale stomatal conductance */
+
+diff -rw biomebgc-4.2/src/include/pointbgc_func.h simulation/src/include/pointbgc_func.h
+23a24
+> int gsmax_init(file init, gsmax_control_struct* gsmax, int simyears);
+
+diff -rw biomebgc-4.2/src/makefile simulation/src/makefile
+21c21
+< CFLAGS = -O3 -std=c99 ${CFLAGS_GENERIC} # Fully optimized and using ISO C99 features
+---
+> CFLAGS = -g -O3 -std=c99 ${CFLAGS_GENERIC} # Fully optimized and using ISO C99 features
+
+diff -rw biomebgc-4.2/src/pointbgc/makefile simulation/src/pointbgc/makefile
+17c17
+< 	presim_state_init.o ramp_ndep_init.o output_ctrl.o ndep_init.o
+---
+> 	presim_state_init.o ramp_ndep_init.o output_ctrl.o ndep_init.o gsmax_init.o
+
+diff -rw biomebgc-4.2/src/pointbgc/pointbgc.c simulation/src/pointbgc/pointbgc.c
+199a200,207
+>
+>   /* read GSMAX control parameters */
+> 	if (gsmax_init(init, &(bgcin.gsmax), bgcin.ctrl.simyears))
+> 	{
+> 		bgc_printf(BV_ERROR, "Error in call to gsmax_init() from pointbgc.c... Exiting\n");
+> 		exit(EXIT_FAILURE);
+> 	}
+>
+452d459
+<
